@@ -188,6 +188,10 @@ namespace omco.erp.web.Controllers
                 Context.Authentication.SignIn("Negotiate", new ClaimsPrincipal(identity));
                 return SignInResult.Success;
             }
+            else
+            {
+                ModelState.AddModelError(string.Empty, "密码不正确");
+            }
             return SignInResult.Failed;
 
         }
