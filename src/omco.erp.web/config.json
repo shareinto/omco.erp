@@ -1,0 +1,10 @@
+﻿{
+  "AppSettings": {
+    "SiteTitle": "omco.erp.web"
+  },
+  "Data": {
+    "DefaultConnection": {
+      "ConnectionString": "Server=(localdb)\\mssqllocaldb;Database=aspnet5-omco.erp.web-c7751974-7bb1-4645-ba6e-f01ecfa85730;Trusted_Connection=True;MultipleActiveResultSets=true"
+    }
+  }
+}

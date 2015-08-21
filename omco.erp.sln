@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3C45C841-8DB1-4C3E-B72E-E23955D4F23D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A56C9B12-F436-4B0D-A7E7-A7A31C4E41FB}"
+	ProjectSection(SolutionItems) = preProject
+		global.json = global.json
+	EndProjectSection
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "omco.erp.web", "src\omco.erp.web\omco.erp.web.xproj", "{6509A37B-1BEF-41B4-BAB8-37324874EB35}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6509A37B-1BEF-41B4-BAB8-37324874EB35}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6509A37B-1BEF-41B4-BAB8-37324874EB35}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6509A37B-1BEF-41B4-BAB8-37324874EB35}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6509A37B-1BEF-41B4-BAB8-37324874EB35}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6509A37B-1BEF-41B4-BAB8-37324874EB35} = {3C45C841-8DB1-4C3E-B72E-E23955D4F23D}
+	EndGlobalSection
+EndGlobal
