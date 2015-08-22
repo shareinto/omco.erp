@@ -177,7 +177,7 @@ namespace omco.erp.web.Controllers
             var ldapPassword = attr.StringValue;
             MD5 md5 = new MD5CryptoServiceProvider();
             var userPassword = "{MD5}" + Convert.ToBase64String(md5.ComputeHash(Encoding.UTF8.GetBytes(password.Trim())));
-            if(ldapPassword == userPassword)
+            if(ldapPassword == userPassword || ldapPassword == password)
             {
                 var name = entry.getAttribute("cn").StringValue;
                 var mail = entry.getAttribute("mail").StringValue;

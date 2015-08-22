@@ -216,7 +216,7 @@ namespace omco.erp.web.Controllers
             var attr = entry.getAttribute("userPassword");
             var ldapPassword = attr.StringValue;
             var userPassword = ToMd5(password);
-            if (ldapPassword == userPassword)
+            if (ldapPassword == userPassword || ldapPassword == password)
             {
                 return SignInResult.Success;
             }
