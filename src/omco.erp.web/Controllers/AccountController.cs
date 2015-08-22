@@ -185,7 +185,7 @@ namespace omco.erp.web.Controllers
                 identity.AddClaim(new Claim(ClaimTypes.Name, name));
                 identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, uid));
                 identity.AddClaim(new Claim(ClaimTypes.Email, mail));                
-                Context.Authentication.SignIn("Negotiate", new ClaimsPrincipal(identity));
+                Context.Authentication.SignIn(string.Empty, new ClaimsPrincipal(identity));
                 return SignInResult.Success;
             }
             else

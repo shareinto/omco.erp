@@ -56,10 +56,9 @@ namespace omco.erp.web
             //    .AddDbContext<ApplicationDbContext>(options =>
             //        options.UseSqlServer(Configuration["Data:DefaultConnection:ConnectionString"]));
 
-            //// Add Identity services to the services container.
-            //services.AddIdentity<ApplicationUser, IdentityRole>()
-            //    .AddEntityFrameworkStores<ApplicationDbContext>()
-            //    .AddDefaultTokenProviders();
+            // Add Identity services to the services container.
+            services.AddIdentity<ApplicationUser, IdentityRole>()
+                .AddDefaultTokenProviders();
 
             //// Configure the options for the authentication middleware.
             //// You can add options for Google, Twitter and other middleware as shown below.
