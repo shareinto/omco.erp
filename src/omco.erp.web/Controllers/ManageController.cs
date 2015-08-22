@@ -253,12 +253,14 @@ namespace omco.erp.web.Controllers
             ldapConn.Bind("cn=Manager,dc=tuleap,dc=local", "123456");
             var lsc = ldapConn.Search(searchBase, LdapConnection.SCOPE_SUB, filter, null, false);
             LdapEntry nextEntry = null;
+            List<LdapEntry> result = new List<LdapEntry>();
             while (lsc.hasMore())
             {
                 nextEntry = lsc.next();
-                yield return nextEntry;
+                result.Add(nextEntry);
             }
             ldapConn.Disconnect();
+            return result;
         }
         #endregion
     }
