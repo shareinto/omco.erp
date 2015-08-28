@@ -16,12 +16,19 @@ using omco.erp.web.Services;
 using Novell.Directory.Ldap;
 using System.Text;
 using System.Security.Cryptography;
+using Microsoft.Framework.OptionsModel;
+using omco.erp.web.Utils;
 
 namespace omco.erp.web.Controllers
 {
     [Authorize]
     public class AccountController : Controller
     {
+        private IOptions<AppSettings> settings;
+        public AccountController(IOptions<AppSettings> settings)
+        {
+            this.settings = settings;
+        }
         //
         // GET: /Account/Login
         [HttpGet]
@@ -38,8 +45,7 @@ namespace omco.erp.web.Controllers
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginViewModel model, string returnUrl = null)
-        {
-            var temp = Encoding.Default.GetString(Convert.FromBase64String("CyyvKci2q5PwgK4rSqOMYNghfJxqFKOFw8g5rp+VsNY="));
+        {             
             ViewData["ReturnUrl"] = returnUrl;
             if (ModelState.IsValid)
             {
@@ -167,49 +173,33 @@ namespace omco.erp.web.Controllers
 
         private SignInResult SignIn(string uid, string password)
         {
-            var entry = FindSingleEntry("ou=people,dc=tuleap,dc=local", string.Format("uid={0}", uid));
-            if(entry == null)
+            using (Ldap ldap = new Ldap(settings.Options.LdapHost, settings.Options.LdapPort))
             {
-                ModelState.AddModelError(string.Empty, "工号不存在");
-                return SignInResult.Failed;
-            }
-            var attr = entry.getAttribute("userPassword");
-            var ldapPassword = attr.StringValue;
-            MD5 md5 = new MD5CryptoServiceProvider();
-            var userPassword = "{MD5}" + Convert.ToBase64String(md5.ComputeHash(Encoding.UTF8.GetBytes(password.Trim())));
-            if(ldapPassword == userPassword || ldapPassword == password)
-            {
-                var name = entry.getAttribute("cn").StringValue;
-                var mail = entry.getAttribute("mail").StringValue;
+                ldap.Bind(settings.Options.LdapManagerDN, settings.Options.LdapManagerPwd);
+                var entry = ldap.SearchOne(settings.Options.LdapPeopleOU, LdapScope.ONE, string.Format("uid={0}", uid));
+                if (entry == null)
+                {
+                    ModelState.AddModelError(string.Empty, "工号不存在");
+                    return SignInResult.Failed;
+                }
+                try
+                {
+                    ldap.Bind(entry.DN, password);
+                }
+                catch
+                {
+                    ModelState.AddModelError(string.Empty, "密码不正确");
+                    return SignInResult.Failed;
+                }
+                var name = entry.getAttribute("cn") == null ? string.Empty : entry.getAttribute("cn").StringValue;
+                var mail = entry.getAttribute("mail") == null ? string.Empty : entry.getAttribute("cn").StringValue;
                 var identity = new ClaimsIdentity(IdentityOptions.ApplicationCookieAuthenticationType);
                 identity.AddClaim(new Claim(ClaimTypes.Name, name));
                 identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, uid));
-                identity.AddClaim(new Claim(ClaimTypes.Email, mail));                
+                identity.AddClaim(new Claim(ClaimTypes.Email, mail));
                 Context.Authentication.SignIn(string.Empty, new ClaimsPrincipal(identity));
                 return SignInResult.Success;
             }
-            else
-            {
-                ModelState.AddModelError(string.Empty, "密码不正确");
-            }
-            return SignInResult.Failed;
-
-        }
-
-        private LdapEntry FindSingleEntry(string searchBase,string filter)
-        {
-            LdapConnection ldapConn = new LdapConnection();
-            ldapConn.Connect("120.26.214.254", 389);
-            ldapConn.Bind("cn=Manager,dc=tuleap,dc=local", "123456");
-            var lsc = ldapConn.Search(searchBase, LdapConnection.SCOPE_SUB, filter, null, false);
-            LdapEntry nextEntry = null;
-            while (lsc.hasMore())
-            {
-                nextEntry = lsc.next();
-                break;
-            }
-            ldapConn.Disconnect();
-            return nextEntry;
         }
         #endregion
     }

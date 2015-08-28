@@ -13,12 +13,19 @@ using omco.erp.web.Services;
 using Novell.Directory.Ldap;
 using System.Security.Cryptography;
 using System.Text;
+using omco.erp.web.Utils;
+using Microsoft.Framework.OptionsModel;
 
 namespace omco.erp.web.Controllers
 {
     [Authorize]
     public class ManageController : Controller
     {
+        private IOptions<AppSettings> settings;
+        public ManageController(IOptions<AppSettings> settings)
+        {
+            this.settings = settings;
+        }
         //
         // GET: /Account/Index
         [HttpGet]
@@ -52,18 +59,21 @@ namespace omco.erp.web.Controllers
         [HttpGet]
         public IActionResult ChangeMail()
         {
-            var entry = FindSingleEntry(string.Format("uid={0},ou=people,dc=tuleap,dc=local", User.GetUserId()), string.Empty);
-            if(entry == null)
+            using (var ldap = CreateLdap())
             {
-                ModelState.AddModelError(string.Empty, "系统发生异常或者您的用户数据已被删除，请联系管理人员");
-                return View();
+                var entry = ldap.SearchOne(string.Format("uid={0},{1}", User.GetUserId(), settings.Options.LdapPeopleOU), LdapScope.BASE, string.Empty);
+                if (entry == null)
+                {
+                    ModelState.AddModelError(string.Empty, "系统发生异常或者您的用户数据已被删除，请联系管理人员");
+                    return View();
+                }
+                var oldMail = entry.getAttribute("mail").StringValue;
+                var model = new ChangeMailViewModel
+                {
+                    OldMail = oldMail
+                };
+                return View(model);
             }
-            var oldMail = entry.getAttribute("mail").StringValue;
-            var model = new ChangeMailViewModel
-            {
-                OldMail = oldMail
-            };
-            return View(model);
         }
 
         //
@@ -77,17 +87,25 @@ namespace omco.erp.web.Controllers
                 return View(model);
             }
             var uid = User.GetUserId();
+            if(string.IsNullOrEmpty(model.NewEmail))
+            {
+                ModelState.AddModelError(string.Empty, "新邮箱不能为空");
+                return View();
+            }
             if(model.NewEmail == model.OldMail)
             {
                 ModelState.AddModelError(string.Empty, "新邮箱不能和旧邮箱重复");
                 return View();
             }
-            var entries = FindEntry("ou=people,dc=tuleap,dc=local", string.Format("mail={0}", model.NewEmail));
-            var entry = entries.FirstOrDefault();
-            if (entry != null && entry.DN != string.Format("uid={0},ou=people,dc=tuleap,dc=local", uid))
+            using (var ldap = CreateLdap())
             {
-                ModelState.AddModelError(string.Empty, "邮箱地址已存在");
-                return View();
+                var entries = ldap.Search(settings.Options.LdapPeopleOU, LdapScope.SUB, string.Format("mail={0}", model.NewEmail));
+                var entry = entries.FirstOrDefault();
+                if (entry != null && entry.DN != string.Format("uid={0},{1}", uid, settings.Options.LdapPeopleOU))
+                {
+                    ModelState.AddModelError(string.Empty, "邮箱地址已存在");
+                    return View();
+                }
             }
             ChangeMail(uid, model.NewEmail);
             return RedirectToAction(nameof(Index), new { Message = "邮箱修改成功" });
@@ -177,25 +195,23 @@ namespace omco.erp.web.Controllers
 
         private SignInResult ChangePassword(string uid,string newPassword)
         {
-            LdapConnection ldapConn = new LdapConnection();
-            ldapConn.Connect("120.26.214.254", 389);
-            ldapConn.Bind("cn=Manager,dc=tuleap,dc=local", "123456");
-            LdapAttribute attr = new LdapAttribute("userPassword", ToMd5(newPassword));
-            LdapModification mod = new LdapModification(LdapModification.REPLACE, attr);
-            ldapConn.Modify(string.Format("uid={0},ou=people,dc=tuleap,dc=local", uid), mod);
-            ldapConn.Disconnect();
+            using (var ldap = CreateLdap())
+            {
+                LdapAttribute attr = new LdapAttribute("userPassword", ToMd5(newPassword));
+                LdapModification mod = new LdapModification(LdapModification.REPLACE, attr);
+                ldap.Modify(string.Format("uid={0},{1}", uid, settings.Options.LdapPeopleOU), mod);
+            }
             return SignInResult.Success;
         }
 
         private SignInResult ChangeMail(string uid, string newEmail)
         {
-            LdapConnection ldapConn = new LdapConnection();
-            ldapConn.Connect("120.26.214.254", 389);
-            ldapConn.Bind("cn=Manager,dc=tuleap,dc=local", "123456");
-            LdapAttribute attr = new LdapAttribute("mail", newEmail);
-            LdapModification mod = new LdapModification(LdapModification.REPLACE, attr);
-            ldapConn.Modify(string.Format("uid={0},ou=people,dc=tuleap,dc=local", uid), mod);
-            ldapConn.Disconnect();
+            using (var ldap = CreateLdap())
+            {
+                LdapAttribute attr = new LdapAttribute("mail", newEmail);
+                LdapModification mod = new LdapModification(LdapModification.REPLACE, attr);
+                ldap.Modify(string.Format("uid={0},{1}", uid, settings.Options.LdapPeopleOU), mod);
+            }
             return SignInResult.Success;
         }
 
@@ -207,60 +223,32 @@ namespace omco.erp.web.Controllers
 
         private SignInResult CheckPassword(string uid, string password)
         {
-            var entry = FindSingleEntry(string.Format("uid={0},ou=people,dc=tuleap,dc=local", uid), string.Empty);
-            if (entry == null)
+            using (var ldap = this.CreateLdap())
             {
-                ModelState.AddModelError(string.Empty, "工号不存在");
-                return SignInResult.Failed;
-            }
-            var attr = entry.getAttribute("userPassword");
-            var ldapPassword = attr.StringValue;
-            var userPassword = ToMd5(password);
-            if (ldapPassword == userPassword || ldapPassword == password)
-            {
+                var entry = ldap.SearchOne(string.Format("uid={0},{1}", uid, settings.Options.LdapPeopleOU), LdapScope.BASE, string.Empty);
+                if (entry == null)
+                {
+                    ModelState.AddModelError(string.Empty, "工号不存在");
+                    return SignInResult.Failed;
+                }
+                try
+                {
+                    ldap.Bind(entry.DN, password);
+                }
+                catch
+                {
+                    ModelState.AddModelError(string.Empty, "旧密码不正确");
+                    return SignInResult.Failed;
+                }
                 return SignInResult.Success;
             }
-            else
-            {
-                ModelState.AddModelError(string.Empty, "旧密码不正确");
-            }
-            return SignInResult.Failed;
-
         }
 
-
-        private LdapEntry FindSingleEntry(string searchBase, string filter)
+        private Ldap CreateLdap()
         {
-            LdapConnection ldapConn = new LdapConnection();
-            ldapConn.Connect("120.26.214.254", 389);
-            ldapConn.Bind("cn=Manager,dc=tuleap,dc=local", "123456");
-            var lsc = ldapConn.Search(searchBase, LdapConnection.SCOPE_BASE, filter, null, false);
-            LdapEntry nextEntry = null;
-            while (lsc.hasMore())
-            {
-                nextEntry = lsc.next();
-                break;
-            }
-            ldapConn.Disconnect();
-            return nextEntry;
-        }
-
-
-        private IEnumerable<LdapEntry> FindEntry(string searchBase, string filter)
-        {
-            LdapConnection ldapConn = new LdapConnection();
-            ldapConn.Connect("120.26.214.254", 389);
-            ldapConn.Bind("cn=Manager,dc=tuleap,dc=local", "123456");
-            var lsc = ldapConn.Search(searchBase, LdapConnection.SCOPE_SUB, filter, null, false);
-            LdapEntry nextEntry = null;
-            List<LdapEntry> result = new List<LdapEntry>();
-            while (lsc.hasMore())
-            {
-                nextEntry = lsc.next();
-                result.Add(nextEntry);
-            }
-            ldapConn.Disconnect();
-            return result;
+            Ldap ldap = new Ldap(settings.Options.LdapHost, settings.Options.LdapPort);
+            ldap.Bind(settings.Options.LdapManagerDN, settings.Options.LdapManagerPwd);
+            return ldap;
         }
         #endregion
     }

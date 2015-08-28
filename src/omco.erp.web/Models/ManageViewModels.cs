@@ -75,6 +75,7 @@ namespace omco.erp.web.Models
 
         [DataType(DataType.EmailAddress)]
         [Display(Name = "新邮箱")]
+        [Required]
         public string NewEmail { get; set; }
     }
 
